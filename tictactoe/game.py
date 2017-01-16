@@ -5,18 +5,19 @@ Created on Thu Nov  3 15:40:45 2016
 @author: Mike
 """
 
+from config import PARAMS
 import numpy as np
 
-class TTTMove():
+class GameMove():
     """ Describes a logical move in the game. """
 
     def as_tuple(self):
-        # Express the state of the game as a 1-d list of integers.
+        # Express the state of the game as a 1-d tuple of integers.
         # This is what is fed into the neural network.
         val = 3 * self.Y + self.X
         tup = np.zeros([9])
         tup[val] = 1
-        return tup
+        return tuple(tup)
 
     def __init__(self, move):
         # state is a 1-d representation of the state, suitable
@@ -28,7 +29,7 @@ class TTTMove():
         # Return a string representing the state in a human-readable format.
         return "({}, {})".format(self.Y, self.X)
 
-class TTTBoard():
+class GameState():
     """ Encompasses the physical state of the game.
         Doesn't include any consideration of the rules, that is
         handled by the GameRules class below."""
@@ -38,6 +39,8 @@ class TTTBoard():
         # This is what is fed into the neural network.
         # 'player' determines for which player ("X" or "O") the board
         # is from the perspective of.
+        # Please note, this must be a tuple or at least some other hashable
+        # object which can be a dictionary key.
         playerint = {"X": -1, "O": 1}[player]
         flattened = np.reshape(self.state, [9])
         tupled = np.squeeze(np.concatenate(([flattened == playerint],
@@ -65,19 +68,19 @@ class TTTBoard():
         outputstring += "---"
         return outputstring
 
-class TTTGame():
+class GameRules():
     """------Managing the rules of Tic Tac Toe------"""
 
     @staticmethod
     def initial_state():
         # Return the base state that the game is in at time 0.
-        return TTTBoard(np.zeros([3,3]))
+        return GameState(np.zeros([3,3]))
 
     @staticmethod
     def legal_moves(state):
         # Returns all the moves which you want to expose an agent to
         # making in a given state.
-        return [TTTMove((Y, X)) for (Y, X) in [(0,0), (0,1), (0,2),
+        return [GameMove((Y, X)) for (Y, X) in [(0,0), (0,1), (0,2),
                                     (1,0), (1,1), (1,2),
                                     (2,0), (2,1), (2,2)]
                             if state.state[Y, X] == 0]
@@ -87,12 +90,7 @@ class TTTGame():
         # Applies a decision vector from player player ('X'/'O') to update the state.
         # Return the new updated state, or None if an illegal move was made.
         # For this game, the decision vector is in [0,1,2]x[0,1,2].
-        if player == "X":
-            playerinteger = -1
-        elif player == "O":
-            playerinteger = 1
-        else:
-            raise(ValueError, "Player code {} not recognised.".format(player))
+        playerinteger = {"X": -1, "O": 1}[player]
 
         if state.state[decision.Y, decision.X] != 0:
             print("Illegal move!")
@@ -102,17 +100,17 @@ class TTTGame():
         else:
             newstate = state.state.copy()
             newstate[decision.Y, decision.X] = playerinteger
-            return TTTBoard(newstate)
+            return GameState(newstate)
 
     @staticmethod
     def eval_state(state):
         # Evaluate a game state.
         # Return an int for the score: -1, 0, 1 for X win, draw, O win,
         # or return None for 'game continues'.
-        has_won = TTTGame._haswon(state)
+        has_won = GameRules._haswon(state)
         if has_won:
             return has_won
-        elif TTTGame._hasdrawn(state):
+        elif GameRules._hasdrawn(state):
             return 0
         else:
             return None

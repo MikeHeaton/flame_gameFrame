@@ -5,21 +5,28 @@ Created on Tue Nov  8 11:23:54 2016
 
 @author: Mike
 """
+from config import PARAMS
+import tensorflow as tf
+import numpy as np
 
-from config import MOVE_CLASS, GAME_RULES
+# Collect customised classes from their locations
+import importlib
+GAMERULES = importlib.import_module(PARAMS.GAME_LOC).GameRules()
+MOVECLASS = importlib.import_module(PARAMS.GAME_LOC).GameMove
+MODELCLASS = importlib.import_module(PARAMS.NEURALMODEL_LOC).NeuralNetwork
 
-class NeuralNetworkPlayer(Player):
+class NNPlayer(Player):
     def __init__(self, player):
         self.player = player
         self.sess = tf.Session()
-        self.neuralnetwork = NEURALNETWORK(generate_mode=True)
+        self.neuralnetwork = MODELCLASS(generate_mode=True)
 
     def _bestmove_from_scoresvector(self, estimated_scores, legalmoves):
-        # Takes a set of estimted scores and a list of legal moves
+        # Takes a set of estimated scores and a list of legal moves
         # in the position.
         # Convert these into a single best move and return it.
         raise NotImplementedError
-        return MOVE_CLASS()
+        return MOVECLASS()
 
     def play(self, state):
         # Passes the state to the neural network as a tuple and receives

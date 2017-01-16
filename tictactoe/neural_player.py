@@ -3,11 +3,15 @@
 Created on Tue Nov  8 11:23:54 2016
 @author: Mike
 """
-
-from config import PARAMS, GAME_RULES, MOVE_CLASS
-from tictactoe.ttt_neural import TTTModel
+from config import PARAMS
 import tensorflow as tf
 import numpy as np
+
+# Collect customised classes from their locations
+import importlib
+GAMERULES = importlib.import_module(PARAMS.GAME_LOC).GameRules()
+MOVECLASS = importlib.import_module(PARAMS.GAME_LOC).GameMove
+MODELCLASS = importlib.import_module(PARAMS.NEURALMODEL_LOC).NeuralNetwork
 
 class NNPlayer():
     def __init__(self, player):
@@ -15,7 +19,7 @@ class NNPlayer():
         self.sess = tf.Session()
 
         # Add the name of the neural network class above here.
-        self.neuralnetwork = TTTModel(generate_mode=True)
+        self.neuralnetwork = MODELCLASS(generate_mode=True)
 
         if PARAMS.play_with_saved:
             saver = tf.train.Saver()
@@ -31,16 +35,17 @@ class NNPlayer():
                                 if i in map(lambda m: 3*m.Y+m.X, legalmoves)]
         bestmovetuple = max(legalmovetups,
                              key=lambda tup: estimated_scores[3*tup[0]+tup[1]])
-        return MOVE_CLASS(bestmovetuple)
+        return MOVECLASS(bestmovetuple)
 
     def play(self, state):
         # Passes the state to the neural network as a tuple and receives
         # the estimated scores back in response.
         feed_dict = {self.neuralnetwork.state_placeholder: state.as_tuple(self.player)}
-        estimated_scores = self.sess.run([self.neuralnetwork.score_predictions],
-                                         feed_dict=feed_dict)
-        legalmoves = GAME_RULES.legal_moves(state)
+        self.estimated_scores = np.squeeze(self.sess.run(
+                                        [self.neuralnetwork.score_predictions],
+                                         feed_dict=feed_dict)[0])
+        legalmoves = GAMERULES.legal_moves(state)
 
-        bestmove = self._bestmove_from_scoresvector(np.squeeze(estimated_scores[0]),
+        bestmove = self._bestmove_from_scoresvector(self.estimated_scores,
                                                     legalmoves)
         return bestmove

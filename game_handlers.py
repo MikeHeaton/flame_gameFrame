@@ -11,33 +11,42 @@ class Game():
 
         self.game_history = []
 
-    def game_iterator(self, first_player="X"):
+    def run_game(self, first_player="X"):
         current_player = first_player
         other_player = {"X":"O", "O":"X"}
-
+        current_state = self.game_rules.initial_state()
+        gamehistory = []
         while True:
-            response   = self.players[current_player].play(self.state)
-            self.new_state = self.game_rules.update_state(  self.state,
-                                                            current_player,
-                                                            response)
-            state_evaluation = self.game_rules.eval_state(self.state)
+            turn_stats, current_state = self.run_move(current_state, current_player)
+            gamehistory.append(turn_stats)
 
-            this_turn = {
-                        "state" : self.state,
-                        "player": current_player,
-                        "move"  : response,
-                        "score" : (state_evaluation if state_evaluation is not None else 0)
-                        }
-            self.game_history.append(this_turn)
-            yield this_turn
-
-            if state_evaluation is not None:
+            if turn_stats["game_ended"]:
                 break
 
             current_player = other_player[current_player]
 
-    def play_game(self, first_player="X"):
-        return [turn for turn in self.game_iterator(first_player=first_player)]
+        return gamehistory
+
+    def run_move(self, state, player):
+        # Poll player for a move, apply it to state.
+        # Return details about the results of the turn, and the new state.
+        """TODO: edit newstate_evaluation to add support
+           for games which give score over time"""
+        response  = self.players[player].play(state)
+        newstate = self.game_rules.update_state(state,
+                                                 player,
+                                                 response)
+        newstate_evaluation = self.game_rules.eval_state(newstate)
+
+        this_turn = {
+                    "state"      : state,
+                    "player"     : player,
+                    "move"       : response,
+                    "score"      : (newstate_evaluation if newstate_evaluation is not None else 0),
+                    "game_ended" : (newstate_evaluation is not None)
+                    }
+
+        return this_turn, newstate
 
 '''
 class NetworkGame(Game):

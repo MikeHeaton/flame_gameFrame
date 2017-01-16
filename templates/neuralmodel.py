@@ -4,9 +4,12 @@ Created on Wed Oct 19 19:29:07 2016
 
 @author: Mike
 """
-
-from config import PARAMS, GAME_RULES
+from config import PARAMS
 import tensorflow as tf
+
+# Collect customised classes from their locations
+import importlib
+GAMERULES = importlib.import_module(PARAMS.GAME_LOC).GameRules()
 
 class NeuralNetwork():
     def __init__(self, generate_mode=False):
@@ -31,9 +34,9 @@ class NeuralNetwork():
         # State and move vector length can be inferred directly from
         # an example state, because they should be the same size for
         # each state.
-        eg_state = GAME_RULES.initial_state()
+        eg_state = GAMERULES.initial_state()
         self.state_vector_length = len(eg_state.as_tuple())
-        self.move_vector_length = len(GAME_RULES.legal_moves(eg_state)[0])
+        self.move_vector_length = len(GAMERULES.legal_moves(eg_state)[0])
 
         # Create the network according to the given specifications.
         [self.state_placeholder,
