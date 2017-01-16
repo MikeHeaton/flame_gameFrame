@@ -5,6 +5,23 @@ Created on Thu Nov  3 15:40:45 2016
 @author: Mike
 """
 
+class GameMove():
+    """ Describes a logical move in the game. """
+    def __init__(self, state):
+        # 'state' is any convenient structure representing the state of the
+        # game. You can choose to expose it to the GameRules class if
+        # convenient, but it is NOT used by the learning algorithm.
+        self.state = state
+
+    def as_tuple(self):
+        # Express the state of the game as a 1-d list of integers.
+        # This is what is fed into the neural network.
+        raise NotImplementedError
+
+    def __str__(self):
+        # Return a string representing the state in a human-readable format.
+        raise NotImplementedError
+
 class GameState():
     """ Encompasses the physical state of the game.
         Doesn't include any consideration of the rules, that is
@@ -15,15 +32,11 @@ class GameState():
         # convenient, but it is NOT used by the learning algorithm.
         self.state = state
 
-    def from_tuple(state_tuple):
-        # Create the game state from its tuple representation.
-        # The tuple representation is a 1-d representation of the state,
-        # suitable for feeding into a neural network.
-        raise NotImplementedError
-
-    def as_tuple(self):
+    def as_tuple(self, player):
         # Express the state of the game as a 1-d list of integers.
         # This is what is fed into the neural network.
+        # 'player' determines for which player ("X" or "O") the board
+        # is from the perspective of.
         raise NotImplementedError
 
     def __str__(self):

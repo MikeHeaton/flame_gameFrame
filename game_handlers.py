@@ -1,5 +1,5 @@
 
-class GameHandler():
+class Game():
     """------Methods to handle playing a full game------"""
     def __init__(self, pX, pO, game_rules, initial_state=None):
         self.players = {"X": pX, "O": pO}
@@ -17,12 +17,10 @@ class GameHandler():
 
         while True:
             response   = self.players[current_player].play(self.state)
-
-            self.game_history.append(this_turn)
             self.new_state = self.game_rules.update_state(  self.state,
-                                                            player,
+                                                            current_player,
                                                             response)
-            state_evaluation = game_rules.eval_state(self.state)
+            state_evaluation = self.game_rules.eval_state(self.state)
 
             this_turn = {
                         "state" : self.state,
@@ -30,9 +28,10 @@ class GameHandler():
                         "move"  : response,
                         "score" : (state_evaluation if state_evaluation is not None else 0)
                         }
+            self.game_history.append(this_turn)
             yield this_turn
 
-            if game_rules.eval_state(self.state) is not None:
+            if state_evaluation is not None:
                 break
 
             current_player = other_player[current_player]
