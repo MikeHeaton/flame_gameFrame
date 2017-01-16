@@ -19,7 +19,7 @@ class NNPlayer():
         self.sess = tf.Session()
 
         # Add the name of the neural network class above here.
-        self.neuralnetwork = MODELCLASS(generate_mode=True)
+        self.neuralnetwork = MODELCLASS()
 
         if PARAMS.play_with_saved:
             saver = tf.train.Saver()
@@ -40,10 +40,12 @@ class NNPlayer():
     def play(self, state):
         # Passes the state to the neural network as a tuple and receives
         # the estimated scores back in response.
-        feed_dict = {self.neuralnetwork.state_placeholder: state.as_tuple(self.player)}
+        print(np.reshape(state.as_tuple(self.player), [1,-1]))
+        feed_dict = {self.neuralnetwork.state_placeholder: np.reshape(state.as_tuple(self.player), [1,-1])}
         self.estimated_scores = np.squeeze(self.sess.run(
                                         [self.neuralnetwork.score_predictions],
                                          feed_dict=feed_dict)[0])
+
         legalmoves = GAMERULES.legal_moves(state)
 
         bestmove = self._bestmove_from_scoresvector(self.estimated_scores,

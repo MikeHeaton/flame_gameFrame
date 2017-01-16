@@ -19,7 +19,7 @@ class NNPlayer(Player):
     def __init__(self, player):
         self.player = player
         self.sess = tf.Session()
-        self.neuralnetwork = MODELCLASS(generate_mode=True)
+        self.neuralnetwork = MODELCLASS()
 
     def _bestmove_from_scoresvector(self, estimated_scores, legalmoves):
         # Takes a set of estimated scores and a list of legal moves

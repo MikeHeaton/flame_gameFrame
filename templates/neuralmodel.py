@@ -12,7 +12,7 @@ import importlib
 GAMERULES = importlib.import_module(PARAMS.GAME_LOC).GameRules()
 
 class NeuralNetwork():
-    def __init__(self, generate_mode=False):
+    def __init__(self):
         """Required attachment points:
         self.state_placeholder          - placeholder for game state tuple;
         self.chosenmove_placeholder     - placeholder for the choice made in
@@ -27,10 +27,6 @@ class NeuralNetwork():
                                             loss calculation and backprop.
         TODO: saver? etc?
         """
-        # Batch size depends on whether we're training,
-        # or generating live predictions.
-        self.generate_mode = generate_mode
-
         # State and move vector length can be inferred directly from
         # an example state, because they should be the same size for
         # each state.
@@ -43,17 +39,6 @@ class NeuralNetwork():
          self.chosenmove_placeholder,
          self.scores_placeholder]    = self.add_placeholders()
 
-        # Reshape the placeholders if necessary
-        batch_size = PARAMS.batch_size if not self.generate_mode else 1
-        [reshaped_state_placeholder,
-        reshaped_chosenmove_placeholder,
-        reshaped_scores_placeholder]    = [tf.reshape(x, [batch_size, -1])
-                                           for x in
-                                           [self.state_placeholder,
-                                            self.chosenmove_placeholder,
-                                            self.scores_placeholder]
-                                           ]
-
         self.score_predictions       = self.add_network(
                                                     reshaped_state_placeholder)
 
@@ -62,30 +47,21 @@ class NeuralNetwork():
                                                     reshaped_chosenmove_placeholder,
                                                     reshaped_scores_placeholder)
 
-    def add_placeholders(   self):
+    def add_placeholders(self):
         with tf.variable_scope("placeholders") as scope:
-            if not self.generate_mode:
-                state_placeholder      = tf.placeholder(tf.float32,
-                                                        [PARAMS.batch_size,
-                                                         self.state_vector_length],
-                                                        name="state_placeholder")
-                chosenmove_placeholder = tf.placeholder(tf.float32,
-                                                        [PARAMS.batch_size,
-                                                         self.move_vector_length],
-                                                        name="chosenmove_placeholder")
-                scores_placeholder     = tf.placeholder(tf.float32,
-                                                        [PARAMS.batch_size],
-                                                        name="scores_placeholder")
-            else:
-                state_placeholder      = tf.placeholder(tf.float32,
-                                                        [self.state_vector_length])
-                chosenmove_placeholder = tf.placeholder(tf.float32,
-                                                        [self.move_vector_length])
-                scores_placeholder     = tf.placeholder(tf.float32,
-                                                        [])
+            state_placeholder      = tf.placeholder(tf.float32,
+                                                    [None,
+                                                     self.state_vector_length],
+                                                    name="state_placeholder")
+            chosenmove_placeholder = tf.placeholder(tf.float32,
+                                                    [None,
+                                                     self.move_vector_length],
+                                                    name="chosenmove_placeholder")
+            scores_placeholder     = tf.placeholder(tf.float32,
+                                                    [None],
+                                                    name="scores_placeholder")
 
         return state_placeholder, chosenmove_placeholder, scores_placeholder
-
 
 def add_network(self,   state_placeholder):
     # This method should return score_predictions, which is the Q-scores
