@@ -2,7 +2,7 @@
 A flexible framework for teaching neural networks to play games. Forked off of
 https://github.com/MikeHeaton/Deep-learning-TTT-web-demo but made flexible and adaptable.
 
-# Creating a new game
+## Creating a new game
 To create a new game, the files which you need to edit are in the 'templates' folder.
 Copy and rename 'templates'.
 The implementation of the game lives in game.py. The classes to worry about are:
@@ -23,7 +23,7 @@ these should be easy. Only ad
 
 Check out the example game files for details!
 
-# Training a game
+## Training a game
 
 unsupervisedlearn.py is the script to train a neural network.
 
@@ -32,3 +32,11 @@ config.py contains training parameters including number of iterations, batch siz
 If you've written the template files correctly, this should all run. For first training
 make sure that learn_with_saved is False. For subsequent runs (retraining the same params)
 set learn_with_saved=True.
+
+## Contact
+
+Most questions should be answered by looking at the demo games. This readme will be updated
+as I get round to it and expand the framework.
+
+If you want to know more, or have specific questions or suggestions, please email me
+at mdheaton at gmail dot com.
