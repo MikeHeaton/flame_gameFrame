@@ -26,39 +26,25 @@ class TrainingNNPlayer(NEURAL_PLAYER):
     # the network change, ie whenever the model is trained, ie each epoch.
     def __init__(self, player, epsilon):
         self.player = player
-        self.history = {}
+        self.history = []
         self.epsilon = epsilon
 
         self.sess = tf.Session()
         self.neuralnetwork = MODELCLASS()
 
+        self.saver = tf.train.Saver()
         if PARAMS.learn_with_saved:
-            saver = tf.train.Saver()
-            saver.restore(self.sess, PARAMS.weights_location)
+            self.saver.restore(self.sess, PARAMS.weights_location)
         else:
-            self.sess.run(tf.initialize_all_variables())
+            self.sess.run(tf.global_variables_initializer())
 
     def play(self, state):
-        """TODO: replace this copy/paste job with a direct call
-        to the "play" method of the parent class."""
-        def _internal_play(state):
-            # Passes the state to the neural network as a tuple and receives
-            # the estimated scores back in response.
-            feed_dict = {self.neuralnetwork.state_placeholder: np.reshape(state.as_tuple(self.player), [1,-1])}
-            self._estimated_scores = np.squeeze(self.sess.run(
-                                            [self.neuralnetwork.score_predictions],
-                                             feed_dict=feed_dict)[0])
-            legalmoves = GAMERULES.legal_moves(state)
-
-            bestmove = self._bestmove_from_scoresvector(self._estimated_scores,
-                                                        legalmoves)
-            return bestmove
 
         # Poll the NNPlayer method to get its opinion of the best move,
         # and record all of the associated scores (used for training).
-        bestmove = _internal_play(state)
-        scores_vector = self._estimated_scores
-        self.history[state.as_tuple(self.player)] = scores_vector
+        bestmove = super(TrainingNNPlayer,self).play(state)
+        scores_vector = self.estimated_scores
+        self.history.append(scores_vector)
 
         # With probability epsilon, overwrite the best move and replace
         # with a randomly selected move from all legal moves.
@@ -68,190 +54,195 @@ class TrainingNNPlayer(NEURAL_PLAYER):
             return random.choice(GAMERULES.legal_moves(state))
 
     def reset_history(self):
-        self.history = {}
+        self.history = []
 
-def runall():
+    def get_history(self):
+        return self.history
+
+    def set_epsilon(self, epsilon):
+        self.epsilon = epsilon
+
+def create_gameandplayers():
     if PARAMS.train_NN_as == "X":
         trainingplayer = TrainingNNPlayer("X", epsilon=1)
         opposingplayer = MINMAX_PLAYER("O")
-        traininggame = GAMEHANDLER(pX=trainingplayer, pO=opposingplayer, game_rules=GAMERULES)
+        traininggame = GAMEHANDLER(pX=trainingplayer, pO=opposingplayer,
+                                    record_neural="X")
     elif PARAMS.train_NN_as == "O":
         trainingplayer = TrainingNNPlayer("O", epsilon=1)
         opposingplayer = MINMAX_PLAYER("X")
-        traininggame = GAMEHANDLER(pX=opposingplayer, pO=trainingplayer, game_rules=GAMERULES)
+        traininggame = GAMEHANDLER(pX=opposingplayer, pO=trainingplayer,
+                                    record_neural="O")
 
-    for t in traininggame.run_game(first_player="X"):
-        print(t["state"], t["player"], t["move"], t["score"], t["game_ended"])
+    return traininggame, trainingplayer
 
-runall()
+def generate_histories(traininggame, trainingplayer, N):
+    # Takes a game and a number N of samples to generate.
+    # Plays the game until N (or more) samples have been seen.
+    # Returns the history of each game from nnplayer's perspective.
 
-"""____How do I do this again____
-- Set up game and players
+    totalstates = 0
+    allgames = []
+    gameoutcomes = {-1:0, 0:0, 1:1}
+    targetscore = {"X":-1, "O":1}
 
-- Generate examples, turn them into game histories
-(Note: make HISTORY objects? Probably! I like this nested structure for time-dimensioned data.
-- Make batches out of game histories (consider how to do this with RNNs but maybe don't
-                                        worry too much for now, this is the only bit which
-                                        should need refactoring.)
-- Crap... refactor so that we use variable batch sizes?
-- Write a training step for a batch
-- Put it all together in the outer function
-"""
+    # Generate samples until we have enough from the NNplayer's POV.
+    while totalstates < N:
+        thisgame = traininggame.run_game(first_player="X")
 
+        from_nn_pov = thisgame.filtered(PARAMS.train_NN_as)
+        predictions_history = trainingplayer.get_history()
+        allgames.append(list(zip(from_nn_pov, predictions_history)))
 
+        totalstates += len(from_nn_pov)
+        gameoutcomes[thisgame.outcome] += 1
 
+    print("Finished generating, scores: {}".format(gameoutcomes))
+    return allgames
 
-"""
+def run_eval(traininggame, trainingplayer, N):
+    # Takes a game and a number N of samples to generate.
+    # Plays the game until N (or more) samples have been seen.
+    # Returns the history of each game from nnplayer's perspective.
+    currentepsilon = trainingplayer.epsilon
 
-def getbatch(G, epsilon):
-    counter = 0
-    history = []
-    scorehistory = []
-    wintype_history = []
-    params = G.params
-    while counter < params.UNSUP_BATCHLENGTH:
-        # Play new games until we've recorded as many states as requested.
+    trainingplayer.set_epsilon(0)
 
-        iterator = G.gameiterator(newgame=True, epsilon=epsilon)
-        gamehistory = []
+    gameoutcomes = {-1:0, 0:0, 1:1}
+    targetscore = {"X":-1, "O":1}
 
-        for gso in iterator:
-            if gso["curplayer"] == NNPLAYER:
-                gamehistory.append(gso)
+    # Play the game N times to get results
+    for _ in range(N):
+        thisgame = traininggame.run_game(first_player="X")
+        gameoutcomes[thisgame.outcome] += 1
 
-        # After the game finishes, record the score and win type.
-        # Remember, score is -1 if P0 wins, 1 if P1 wins, 0 if a draw
-        # Need to maximise score so reverse it if NNPLAYER==0
-        scorehistory.append(gso["score"] * (2*NNPLAYER-1))
-        wintype_history.append(gso["wintype"])
+    trainingplayer.set_epsilon(currentepsilon)
 
-        for t in range(len(gamehistory)-1, -1, -1):
-            # Loop backwards over the game history (backwards is needed to get
-            # rewards at time t+1)
-            state = gamehistory[t]["inputvec"]
-            action = gamehistory[t]["thisplay"]
+    return gameoutcomes
 
-            if t == len(gamehistory) - 1:
-                gamehistory[t]["reward"] = scorehistory[-1]
-            else:
-                gamehistory[t]["reward"]  = gamehistory[t]["score"]
+def create_batches(gamehistories, trainingplayer):
+    # Takes a list of game histories and the NNPlayer used to generate them.
+    # Extracts the trainingplayer's score predictions for each time step
+    # and uses them to create training targets for each sample in the history.
+    # Batches them into numpy arrays and yields out the arrays.
+    """TODO: if we want to use RNNs, this will need to be refactored."""
+    targetvalues_list = []
+    state_list = []
+    chosenmove_list = []
+    for game in gamehistories:
+        for t in range(len(game)):
+            # Create training examples from each turn.
+            # A training example is the state; a one-hot of the chosen move;
+            # and a value representing the target prediction value, equal to:
+            # Q(s,a) = max Q(s', a')
+            # with s' being the state at the NEXT time step.
 
-            # Label formula is:
-            # Q(s,a) = r_(t+1) + GAMMA * max Q(s',a')
-            # with s' the state at t+1
-            # and a' ranging over possible actions.
-            if t == len(gamehistory) - 1:
-                gamehistory[t]["label"]  = gamehistory[t]["reward"]
-            else:
-                gamehistory[t]["label"]  = ( params.GAMMA *
-                            np.max([gamehistory[t+1]["scoresestimate"][i]
-                            for i in range(len(gamehistory[t+1]["scoresestimate"]))
-                            if gamehistory[t+1]["legalmask"][i] == 1])
-                           )
-            label = gamehistory[t]["label"]
-            history.append((state, action, label))
-            counter += 1
+            # For the last turn in the game, there is no next value
+            # so just use the score.
 
-    print(Counter(wintype_history))
+            # Note that turn.score is NOT relative to the player, so "X" winning
+            # gives a score of -1. This isn't what we want because states
+            # are fed in relative to the player's own position, so we need to
+            # adjust for this.
+            player = trainingplayer.player
+            playerinteger = {"X":-1, "O":1}[player]
 
-    return history, scorehistory
+            # Add the immediate reward (0 except for at game end)
+            targetvalue = game[t][0].score * playerinteger
 
-def runepoch(m, sess, epsilon):
-    # Run an epoch using m to play p0.
+            if t < len(game) - 1:
+                nexttime_predictions = game[t+1][1]
+                nexttime_legalmoves  = game[t+1][0].legalmovestuple
+                # print(game[t+1][0].state)
+                # print(nexttime_predictions, nexttime_legalmoves)
+                # Add the max Q-score among _legal_ moves at time t+1.
+                targetvalue += (PARAMS.gamma *
+                                max([x[0] for x in zip(nexttime_predictions,
+                                                       nexttime_legalmoves)
+                                     if x[1]]))
+                # print(targetvalue)
 
-    print("Setting up model...")
-    params = m.params
-    if NNPLAYER == 1:
-        p0 = perfectplayer.ttt_MinMaxPlayer(-1)
-        p1 = ttt_players.ttt_NNPlayer(m, sess)
-    elif NNPLAYER == 0:
-        p1 = perfectplayer.ttt_MinMaxPlayer(1)
-        p0 = ttt_players.ttt_NNPlayer(m, sess)
-    else:
-        print("NNPLAYER param not 1 or 0, not recognised.")
-    G = ttt_game.Game(params, p0=p0, p1=p1)
+            #print(game[t][0].state, game[t][0].move, targetvalue)
 
-    print("Generating play...")
-    history, scorehistory = getbatch(G, epsilon)
+            targetvalues_list.append(targetvalue)
 
-    print("Sampling history...")
-    sample = random.sample(history, params.UNSUP_SAMPLESIZE)
-    minibatches = batchsample(sample, params)
+            state_list.append(game[t][0].state.as_tuple(player))
+            chosenmove_list.append(game[t][0].move.as_tuple())
+    #for i in list(zip(state_list, chosenmove_list, targetvalues_list)):
+    #    print(i[0], i[1], i[2])
 
-    print("Training...")
-    trainingloss = 0
-    for states, actions, labels in minibatches:
-        feeddict = {m.input_placeholder: states,
-                    m.label_placeholder: actions,
-                    m.score_placeholder: labels
-                    }
-        _, loss = sess.run([m.reinforcement_train_op, m.reinforcementloss], feed_dict = feeddict)
-        trainingloss += loss
+    def batch_generator(state_list, chosenmove_list, targetvalues_list):
+        t = 0
+        while t < len(state_list):
+            state_batch = np.vstack(state_list[t: t+PARAMS.batch_size])
+            chosenmove_batch = np.vstack(chosenmove_list[t: t+PARAMS.batch_size])
+            targetvalues_batch = np.squeeze(np.vstack(targetvalues_list[t: t+PARAMS.batch_size]), axis=1)
+            yield {
+                    "states": state_batch,
+                    "moves" : chosenmove_batch,
+                    "scores": targetvalues_batch
+                  }
 
-    print("Testing...")
-    testscore = G.playgame()
-    return trainingloss, np.mean(scorehistory), testscore
+            t += PARAMS.batch_size
 
-def batchsample(sample, params):
-    # Takes a sample of states, and batches them into a form acceptable to the NN.
-    # Samples are (statehistory, action, label)
+    return batch_generator(state_list, chosenmove_list, targetvalues_list)
 
-    states_chunked = [[z[0] for z in sample[0+t:params.BATCHSIZE+t]] for t in range(0, len(sample), params.BATCHSIZE)]
-    actions_chunked = [[z[1] for z in sample[0+t:params.BATCHSIZE+t]] for t in range(0, len(sample), params.BATCHSIZE)]
-    rewards_chunked = [[z[2] for z in sample[0+t:params.BATCHSIZE+t]] for t in range(0, len(sample), params.BATCHSIZE)]
-    return zip(states_chunked, actions_chunked, rewards_chunked)
+def train_step(minibatch, trainingplayer):
+    # Feed a minibatch into the neural network of the trainingplayer.
+    # Train it using gradient descent.
+    NN = trainingplayer.neuralnetwork
 
-def runtraining(params, usesaved=True):
-    tf.reset_default_graph()
-    with tf.Session() as sess:
+    feed_dict = {
+                 NN.state_placeholder      : minibatch["states"],
+                 NN.chosenmove_placeholder : minibatch["moves"],
+                 NN.scores_placeholder     : minibatch["scores"]
+                }
 
-        m = ttt_NN.ttt_NN(params)
-        saver = tf.train.Saver()
-        if usesaved:
-            saver.restore(sess, './network_weights')
-        else:
-            init = tf.initialize_all_variables()
-            sess.run(init)
+    _, loss = trainingplayer.sess.run(
+                        [NN.reinforcement_train_op, NN.total_loss],
+                        feed_dict=feed_dict)
 
-        genscorehistory = []
-        trainlosshistory = []
-        testscorehistory = []
-        epsilon = m.params.EPSILON_INIT
+    return loss
 
-        for t in range(m.params.TRAINTIME):
-            if epsilon > m.params.EPSILON_FINAL:
-                epsilon -= 1/m.params.TRAINTIME
-            print("--EPOCH {:d}--".format(t))
+def runepoch(traininggame, trainingplayer, N):
+    trainingplayer.reset_history()
 
-            trainloss, genscore, testscore = runepoch(m, sess, epsilon)
-            genscorehistory.append(genscore)
-            trainlosshistory.append(trainloss)
-            testscorehistory.append(testscore)
+    print("Playing games...")
+    history = generate_histories(traininggame, trainingplayer, N)
 
-            print("Epsilon: ", epsilon)
-            print("Test average score: {:f}".format(genscore))
-            print("Training loss: {:f}".format(trainloss))
-            print("(Deterministic) game test score: {:d}".format(testscore))
+    print("Training network...")
+    total_loss = 0
+    for minibatch in create_batches(history, trainingplayer):
+        total_loss += train_step(minibatch, trainingplayer)
 
-            if t % params.SAVEEVERY == 0 and t > 0:
-                saver.save(sess, './network_weights')
-                print("SAVED")
+    return total_loss
 
-        plt.rcParams["figure.figsize"] = (9,9)
-        plt.figure(1)
-        plt.subplot(311)
-        plt.plot(trainlosshistory)
-        plt.title("Train Loss History")
-        plt.subplot(312)
-        plt.plot(genscorehistory)
-        plt.title("Generating (with Softmax) Scores History")
-        plt.subplot(313)
-        print(testscorehistory)
-        plt.plot(testscorehistory)
-        plt.title("Testing (best guess) Scores History")
+def runall():
+    print("Setting up game...")
+    traininggame, trainingplayer = create_gameandplayers()
 
-    return trainlosshistory, genscorehistory, testscorehistory
+    epsilon = 1
+    for n in range(PARAMS.num_epochs):
+        print("---EPOCH {}---".format(n))
 
-if __name__ == '__main__':
-    runtraining(Params(), usesaved=False)
-"""
+        epsilon = max(PARAMS.min_epsilon, epsilon - 1/PARAMS.num_epochs)
+        trainingplayer.set_epsilon(epsilon)
+        print("Epsilon = {}".format(np.round(epsilon, 4)))
+        total_loss = runepoch(traininggame, trainingplayer, PARAMS.epoch_length)
+        print("Epoch finished, total loss: {}".format(total_loss))
+
+        if (n+1) % PARAMS.save_every == 0:
+            trainingplayer.saver.save(trainingplayer.sess,
+                                      PARAMS.weights_location)
+
+            print("WEIGHTS SAVED")
+
+        if (n+1) % PARAMS.eval_every == 0:
+            results = run_eval(traininggame, trainingplayer, PARAMS.eval_length)
+            print("EVALUATION COMPLETE. Scores: {}".format(results))
+
+if __name__ == "__main__":
+    runall()
+
+"""THINK: when we override the choice with gamma, are we using the original choice
+or the new choice to train with? I think the new choice but double-check."""

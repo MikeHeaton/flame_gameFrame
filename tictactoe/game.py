@@ -13,6 +13,7 @@ class GameMove():
 
     def as_tuple(self):
         # Express the state of the game as a 1-d tuple of integers.
+        # Almost certainly this should be a 1-hot vector.
         # This is what is fed into the neural network.
         val = 3 * self.Y + self.X
         tup = np.zeros([9])
@@ -84,6 +85,12 @@ class GameRules():
                                     (1,0), (1,1), (1,2),
                                     (2,0), (2,1), (2,2)]
                             if state.state[Y, X] == 0]
+
+    @staticmethod
+    def legal_moves_as_tuple(state):
+        # Returns a some-hot vector of the legal moves in a state.
+        legalmoves = GameRules.legal_moves(state)
+        return (sum(x) for x in zip(*legalmoves))
 
     @staticmethod
     def update_state(state, player, decision):

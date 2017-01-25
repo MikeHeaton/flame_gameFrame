@@ -42,7 +42,8 @@ class NeuralNetwork():
         self.score_predictions       = self.add_network(
                                                     reshaped_state_placeholder)
 
-        self.reinforcement_train_op  = self.add_training(
+        (self.reinforcement_train_op,
+         self.total_loss)           = self.add_training(
                                                     self.score_predictions,
                                                     reshaped_chosenmove_placeholder,
                                                     reshaped_scores_placeholder)
@@ -92,4 +93,4 @@ def add_training(self,  score_predictions,
                                         total_loss,
                                         global_step=rein_global_step)
 
-    return reinforcement_train_op
+    return reinforcement_train_op, total_loss

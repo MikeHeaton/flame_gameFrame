@@ -21,7 +21,7 @@ class NNPlayer(Player):
         self.sess = tf.Session()
         self.neuralnetwork = MODELCLASS()
 
-    def _bestmove_from_scoresvector(self, estimated_scores, legalmoves):
+    def _best_legal_move(self, estimated_scores, legalmoves):
         # Takes a set of estimated scores and a list of legal moves
         # in the position.
         # Convert these into a single best move and return it.
@@ -34,10 +34,10 @@ class NNPlayer(Player):
         """TODO: CONVERT TO "X" or "O" STATE FOR PROPER FEEDING
         Maybe that should live in the state class?"""
         feed_dict = {self.model.state_placeholder: state.as_tuple()}
-        estimated_scores = self.sess.run([self.state.score_predictions],
+        self.estimated_scores = self.sess.run([self.state.score_predictions],
                                             feed_dict=feed_dict)
         legalmoves = GAME_RULES.legal_moves(state)
 
-        bestmove = self._bestmove_from_scoresvector(estimated_scores,
+        bestmove = self._best_legal_move(self.estimated_scores,
                                                     legalmoves)
         return bestmove

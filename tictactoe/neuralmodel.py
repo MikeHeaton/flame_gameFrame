@@ -42,7 +42,8 @@ class NeuralNetwork():
         self.score_predictions       = self.add_network(
                                                     self.state_placeholder)
 
-        self.reinforcement_train_op  = self.add_training(
+        (self.reinforcement_train_op,
+         self.total_loss)           = self.add_training(
                                                     self.score_predictions,
                                                     self.chosenmove_placeholder,
                                                     self.scores_placeholder)
@@ -71,7 +72,9 @@ class NeuralNetwork():
             W1 = tf.get_variable("W1", [self.state_vector_length, PARAMS.hidden_layer_size])
             b1 = tf.get_variable("b1", [PARAMS.hidden_layer_size])
             layer_1 = tf.matmul(state_placeholder, W1) + b1
-            layer_1 = tf.nn.sigmoid(layer_1)
+            layer_1 = tf.nn.relu(layer_1)
+
+            # layer_1 = tf.nn.sigmoid(layer_1)
 
         with tf.variable_scope("LinClassifier") as scope:
             W2 = tf.get_variable("Voutput",
@@ -81,7 +84,8 @@ class NeuralNetwork():
                                      [self.move_vector_length])
 
             layer_2 = tf.matmul(layer_1,  W2) + b2
-            score_predictions = tf.nn.sigmoid(layer_2)
+
+            score_predictions = layer_2
 
         return score_predictions
 
@@ -106,4 +110,4 @@ class NeuralNetwork():
                                                 total_loss,
                                                 global_step=rein_global_step)
 
-        return reinforcement_train_op
+        return reinforcement_train_op, total_loss

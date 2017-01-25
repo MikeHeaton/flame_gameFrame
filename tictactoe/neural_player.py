@@ -21,13 +21,13 @@ class NNPlayer():
         # Add the name of the neural network class above here.
         self.neuralnetwork = MODELCLASS()
 
+        self.saver = tf.train.Saver()
         if PARAMS.play_with_saved:
-            saver = tf.train.Saver()
-            saver.restore(self.sess, PARAMS.weights_location)
+            self.saver.restore(self.sess, PARAMS.weights_location)
         else:
-            self.sess.run(tf.initialize_all_variables())
+            self.sess.run(tf.global_variables_initializer())
 
-    def _bestmove_from_scoresvector(self, estimated_scores, legalmoves):
+    def _best_legal_move(self, estimated_scores, legalmoves):
         # Takes a 1d array of estimated scores and a list of legal moves
         # in the position.
         # Convert these into a single best move and return it.
@@ -40,14 +40,15 @@ class NNPlayer():
     def play(self, state):
         # Passes the state to the neural network as a tuple and receives
         # the estimated scores back in response.
-        print(np.reshape(state.as_tuple(self.player), [1,-1]))
-        feed_dict = {self.neuralnetwork.state_placeholder: np.reshape(state.as_tuple(self.player), [1,-1])}
+
+        feed_dict = {self.neuralnetwork.state_placeholder:
+                        np.reshape(state.as_tuple(self.player), [1,-1])}
         self.estimated_scores = np.squeeze(self.sess.run(
                                         [self.neuralnetwork.score_predictions],
                                          feed_dict=feed_dict)[0])
 
         legalmoves = GAMERULES.legal_moves(state)
 
-        bestmove = self._bestmove_from_scoresvector(self.estimated_scores,
+        bestmove = self._best_legal_move(self.estimated_scores,
                                                     legalmoves)
         return bestmove

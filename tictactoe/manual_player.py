@@ -8,7 +8,7 @@ from config import PARAMS
 
 # Collect customised classes from their locations
 import importlib
-GAMEMOVE = importlib.import_module(PARAMS.GAME_LOC).GameMove()
+GAMEMOVE = importlib.import_module(PARAMS.GAME_LOC).GameMove
 
 class ManualPlayer():
     # Asks the user for input at each step. Used for demo purposes.
@@ -23,7 +23,6 @@ class ManualPlayer():
 
         # Process the decision_string and return a move object
         # which the game rules class will recognise.
-        decision = decision_string
-        raise NotImplementedError
+        decision = list(int(i) for i in decision_string)
 
         return GAMEMOVE(decision)
