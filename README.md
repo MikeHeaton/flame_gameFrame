@@ -1,6 +1,5 @@
 # flame_gameFrame
-A flexible framework for teaching neural networks to play games. Forked off of
-https://github.com/MikeHeaton/Deep-learning-TTT-web-demo but made flexible and adaptable.
+A flexible framework for teaching neural networks to play games. Anyone can use flamegameframe to investigate reinforcement learning on boardgames, using just some vanilla Python to implement the game rules. There are scripts to automate the running of the game and training of the neural network, all you have to do is set up the neural network model and tweak the learning parameters.
 
 ## Creating a new game
 To create a new game, the files which you need to edit are in the 'templates' folder.
